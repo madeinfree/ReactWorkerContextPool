@@ -2,6 +2,8 @@
 
 Reuse workers and management flexible, make browser main thread happily to render and feeling smooth.
 
+** in developing feth Not the npm module, just the component in create-react-app now. **
+
 ## GIF
 
 ![GIF](./gif/workergif.gif)
@@ -83,6 +85,14 @@ const workerPool = useContext(WorkerPoolContext);
 
 ```jsx
 useEffect(() => {
+  const code = `self.onmessage = (e) => {
+    const [num1, num2] = e.data
+    let sum = 0
+    for (let i = num1; i < num2; i++) {
+      sum += i
+    }
+    self.postMessage(sum)
+  }`;
   workerPool.requestWorker("count", code);
   workerPool.requestWorker("echo", echo);
 }, [code, echo, workerPool]);
