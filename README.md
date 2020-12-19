@@ -1,46 +1,119 @@
-# Getting Started with Create React App
+# React Worker Pool Context Component
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Reuse workers and management flexible, make browser main thread happily to render and feeling smooth.
 
-## Available Scripts
+## GIF
 
-In the project directory, you can run:
+![GIF](./gif/workergif.gif)
 
-### `yarn start`
+## Experiment
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+目前為學習研究與實驗性質，請勿使用在正式環境中。
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+This project is in experiment, dont's use it on production environment.
 
-### `yarn test`
+## Why
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Make browser main thread happily to render and feeling smooth.
 
-### `yarn build`
+The React is always sync now, if we have some cpu heavy computing, it will affect the main thread render, and the browser looks like delay we call frame drop, we can use browser native Worker API to handle the cpu heavy computing to cost down the CPU.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Graph
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+(block)
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- React Main Thread
+- heavy computing thing
+- React render reconciler(block and going) - 4ms
+- heavy computing thing run(block and going) - 18ms
+- broswer repaint/reflow(block and going)
+- heavy computing thing
+- React render reconciler(block and going) - 5ms
+- heavy computing thing run(block and going) - 16ms
+- broswer repaint/reflow(block and going)
 
-### `yarn eject`
+(non-block)
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+- React Main Thread
+  - heavy computing thing
+  - call worker -------------->(thread non-block) - 1ms
+- React render reconciler-----------|(block and going) - 2ms
+- broswer repaint/reflow------------|(block and going)
+  - worker done ------------->(thread non-block) - 1ms
+- React render reconciler-----------|(block and going) - 3ms
+- broswer repaint/reflow------------|(block and going)
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Core
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+Only `./src/ReactWorkerPool/index.tsx`
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## Public API
 
-## Learn More
+- requestWorker(name: string; code: string; timeout?: number): (name: string)
+- releaseWorker(name: string): boolean
+- run(name: string; ...args: any): void;
+- getResult: Promise\<any>
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Used
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### The WorkerPool is base on React Context API so we import it and use it on top of other components which components want to use worker.
+
+```jsx
+import WorkerPool from "./ReactWorkerPool";
+
+ReactDOM.render(
+  <React.StrictMode>
+    <WorkerPool>
+      <App />
+    </WorkerPool>
+  </React.StrictMode>,
+  document.getElementById("root")
+);
+```
+
+### When we completed the Provider setup, and than go to the child component to useContext.
+
+```jsx
+import { WorkerPoolContext } from "./ReactWorkerPool";
+
+const workerPool = useContext(WorkerPoolContext);
+```
+
+### The WorkerPool is big pool, it maintain all the worker, we will request the first Worker instance from useEffect.
+
+```jsx
+useEffect(() => {
+  workerPool.requestWorker("count", code);
+  workerPool.requestWorker("echo", echo);
+}, [code, echo, workerPool]);
+```
+
+### Last, we can call worker anywhere.
+
+```jsx
+const clickToCount = async () => {
+  workerPool.run("count", [num1, num2]);
+  const data = await workerPool.getResult("count");
+  if (data) {
+    setSum(data);
+  }
+};
+return (
+  <div className="App">
+    <header className="App-header">
+      <img src={logo} className="App-logo" alt="logo" />
+      <button onClick={clickToCount}>Click To Count From Child Thread</button>
+      <div className="App-link">The total is: {sum}</div>
+    </header>
+  </div>
+);
+```
+
+## Reference
+
+- [alewin/useWorker](https://github.com/alewin/useWorker)
+- [dai-shi/react-hooks-worker](https://github.com/dai-shi/react-hooks-worker)
+
+## License
+
+MIT
