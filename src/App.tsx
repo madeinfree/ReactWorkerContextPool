@@ -55,7 +55,7 @@ const App = () => {
     for (let i = num1; i < num2; i++) {
       sum += i;
     }
-    return sum;
+    setSum(sum);
   };
 
   useEffect(() => {

@@ -73,20 +73,31 @@ const WorkerPool = ({ children }: { children: React.ReactElement }) => {
     } else {
       currentWorker.isIdle = false;
       currentWorker.__worker.postMessage(args);
-      currentWorker.result = new Promise((resolve) => {
+      currentWorker.result = new Promise((resolve, reject) => {
         let timeId: NodeJS.Timeout;
+        const errorHandle = (e: ErrorEvent) => {
+          reject({
+            isError: true,
+            filename: e.filename,
+            lineno: e.lineno,
+            message: e.message,
+          });
+        };
         const messageEvent = (e: any) => {
           currentWorker.__worker.removeEventListener("message", messageEvent);
+          currentWorker.__worker.removeEventListener("error", errorHandle);
           if (timeId) clearTimeout(timeId);
           currentWorker.isIdle = true;
           resolve(e.data);
         };
         timeId = setTimeout(() => {
           currentWorker.__worker.removeEventListener("message", messageEvent);
+          currentWorker.__worker.removeEventListener("error", errorHandle);
           currentWorker.isIdle = true;
           resolve(null);
         }, currentWorker.timeout);
         currentWorker.__worker.addEventListener("message", messageEvent);
+        currentWorker.__worker.addEventListener("error", errorHandle);
       });
     }
   };
